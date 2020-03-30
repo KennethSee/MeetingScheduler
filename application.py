@@ -30,4 +30,4 @@ Session(app)
 
 @app.route("/", methods=["GET"])
 def main():
-    render_template("main.html")
+    render_template("index.html")
