@@ -2428,3 +2428,5 @@ lib/python3.6/types.py
 lib/python3.6/warnings.py
 lib/python3.6/weakref.py
 pip-selfcheck.json
+conda-meta/history
+include/python3.6m
