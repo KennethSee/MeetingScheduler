@@ -17,7 +17,7 @@ outlookAuthURL = 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize
 outlookTokenURL = 'https://login.microsoftonline.com/common/oauth2/v2.0/token'
 outlookCalendarViewURL = 'https://outlook.office.com/api/v2.0/me/calendarview'
 outlookClientID = '3b25d750-9b21-4793-91cf-298e839932bf'
-outlook_redirect_uri = 'http://localhost:5000/auth/outlook/redirect'
+outlook_redirect_uri = 'https://meetingscheduler-api-heroku.herokuapp.com/auth/outlook/redirect'
 outlookClientSecret = 'b8XmFm=heopQaW/O=mwCz8xJ[RbDMs58'
 
 # Configure application
