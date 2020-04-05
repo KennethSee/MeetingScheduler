@@ -3,7 +3,19 @@ var EndingDateTime = new Date();
 
 var client_id = new String("3b25d750-9b21-4793-91cf-298e839932bf");
 
+var UserTimeZone = new String();
+
+
 document.addEventListener("DOMContentLoaded", function(){
+    // Set form default values
+    UserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    document.getElementById("TimeWindowStart").defaultValue = "09:00";
+    document.getElementById("TimeWindowEnd").defaultValue = "17:00";
+    $(function() {
+        var temp=UserTimeZone; 
+        $("#TimeZoneMain").val(temp);
+    });
+
     // Perform submission validations
     document.frm.submit.onclick = function(){
         StartingDateTime = document.frm.StartingDate.value.concat(" ", document.frm.StartingTime.value, ":00");

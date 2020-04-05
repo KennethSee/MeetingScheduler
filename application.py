@@ -60,15 +60,21 @@ def main():
         events_dict = defaultdict()
         
         # get user-specified parameters
-        TimeZone = 'America/Los_Angeles' #hardcode placeholder
+        TimeZone = request.form.get('TimeZone')
+        TimeZoneOffset = datetime.now(pytz.timezone(TimeZone)).strftime('%z')
+        TimeZoneOffset = TimeZoneOffset[:3] + ':' + TimeZoneOffset[3:]
         StartDate = request.form.get('StartingDate')
         StartTime = request.form.get('StartingTime') + ':00'
-        StartDateTime = StartDate + 'T' + StartTime + '-07:00' #ISO 8601 with TimeZone information (hardcoded as PST for now)
+        session['StartDate'] = StartDate
+        session['StartTime'] = StartTime
+        StartDateTime = StartDate + 'T' + StartTime + TimeZoneOffset #ISO 8601 with TimeZone information
         EndDate = request.form.get('EndingDate')
         EndTime = request.form.get('EndingTime') + ':00'
-        EndDateTime = EndDate + 'T' + EndTime + '-07:00' #ISO 8601 with TimeZone information (hardcoded as PST for now)
-        session['StartOfDay'] = '08:00:00' #placeholder
-        session['EndOfDay'] = '17:00:00' #placeholder
+        session['EndDate'] = EndDate
+        session['EndTime'] = EndTime
+        EndDateTime = EndDate + 'T' + EndTime + TimeZoneOffset #ISO 8601 with TimeZone information
+        session['StartOfDay'] = request.form.get('TimeWindowStart') + ':00'
+        session['EndOfDay'] = request.form.get('TimeWindowEnd') + ':00'
 
         if source == 'outlook':
             #make API GET request to Outlook
@@ -87,15 +93,7 @@ def main():
             #check to make sure request was successful
             if response.status_code != 200:
                 return apology('Unable to retrieve calendar information', response.status_code)
-            print(response.json())
-            #print(response.status_code)
-            for item in response.json().get('value'):
-                print('subject:', item.get('Subject'))
-                print('StartDateTime:', item.get('Start').get('DateTime'))
-                print('EndDateTime', item.get('End').get('DateTime'))
-                print('EndDateTime', item.get('End').get('TimeZone'))
-
-                print('IsCancelled:', item.get('IsCancelled'))
+                        
             for item in response.json().get('value'):
                 if (item.get('ShowAs') == 'Busy' or item.get('ShowAs') == 'Oof') and item.get('IsCancelled') != 1:
                     #check that event is not cancelled or marked as free or working elsewhere
@@ -119,7 +117,7 @@ def main():
                             events_dict[StartDate_response] = [(EventSubject, StartTime_response, EndTime_response)]
                     else:
                         rangeLength, dateRange = daterange(StartDate_response, EndDate_response)
-                        for i in range(rangeLength):
+                        for i in range(rangeLength + 1):
                             #iterate through dates in range
                             if i == 0:
                                 #the first date's starting time will be the event's starting time while ending time will be 23:59
@@ -127,20 +125,115 @@ def main():
                                     events_dict[dateRange[i]].append((EventSubject, StartTime_response, '23:59:59'))
                                 else:
                                     events_dict[dateRange[i]] = [(EventSubject, StartTime_response, '23:59:59')]
+                            elif i == rangeLength:
+                                #add the final day's event time as starting time equal to start of day and ending time as the event end time
+                                if EndDate_response in events_dict:
+                                    events_dict[EndDate_response].append((EventSubject, '00:00:00', EndTime_response))
+                                else:
+                                    events_dict[EndDate_response] = [(EventSubject, '00:00:00', EndTime_response)]
                             else:
                                 #subsequent dates will default to the entire day
                                 if dateRange[i] in events_dict:
                                     events_dict[dateRange[i]].append((EventSubject, '00:00:00', '23:59:59'))
                                 else:
                                     events_dict[dateRange[i]] = [(EventSubject, '00:00:00', '23:59:59')]
-                        #add the final day's event time as starting time equal to start of day and ending time as the event end time
-                        if EndDate_response in events_dict:
-                            events_dict[EndDate_response].append((EventSubject, '00:00:00', EndTime_response))
-                        else:
-                            events_dict[EndDate_response] = [(EventSubject, '00:00:00', EndTime_response)]
                         
-            print(events_dict)
-        return redirect("/")
+            session['calendar_schedule'] = events_dict
+        return redirect("/scheduleoutput")
+
+@app.route("/scheduleoutput", methods=["GET"])
+@login_required
+def output():
+    calendar_schedule = session['calendar_schedule']
+    StartDate = session['StartDate']
+    StartTime = session['StartTime']
+    EndDate = session['EndDate']
+    EndTime = session['EndTime']
+    StartOfDay = session['StartOfDay']
+    EndOfDay = session['EndOfDay']
+
+    #format dates to display Month_Name DD YYYY
+    StartDate_formatted = dateFormat(StartDate)
+    EndDate_formatted = dateFormat(EndDate)
+
+    #logic to get free times for each day
+    output = []
+    rangeLength, dateRange = daterange(StartDate, EndDate)
+    for i in range(rangeLength + 1):
+        #assign temporal start and end times of the day
+        if StartDate == dateRange[i]:
+            StartOfDay_temporal = StartTime
+        else:
+            StartOfDay_temporal = StartOfDay
+        if EndDate == dateRange[i]:
+            EndOfDay_temporal = EndTime
+        else:
+            EndOfDay_temporal = EndOfDay
+
+        if dateRange[i] in calendar_schedule:
+            events = calendar_schedule.get(dateRange[i])
+            schedule = []
+            for event in events:
+                eventStartTime = event[1]
+                eventEndTime = event[2]
+                schedule.append((eventStartTime,eventEndTime))
+            schedule.sort(key=lambda x:x[0])
+            #merge overlapping events
+            mergeCount = 1
+            while mergeCount > 0:
+                mergeCount, schedule = scheduleMerge(schedule)
+
+            #remove any events that do not fall within user-defined time window
+            schedule_clean = []
+            for event in schedule:
+                if event[1] > StartOfDay_temporal and event[0] < EndOfDay_temporal:
+                    schedule_clean.append(event)
+            if len(schedule_clean) == 0:
+                pass
+            else:
+                #adjust start and end of days if necessary
+                if schedule_clean[0][0] <= StartOfDay_temporal:
+                    #set start of day to end of first event
+                    StartOfDay_temporal = schedule_clean[0][1]
+                    schedule_clean.pop(0)
+                if len(schedule_clean) > 0:
+                    if schedule_clean[-1][1] >= EndOfDay_temporal:
+                        #set end of day to start of first event
+                        EndOfDay_temporal = schedule_clean[-1][0]
+                        schedule_clean.pop(-1)
+                if EndOfDay_temporal < StartOfDay_temporal:
+                    #if adjusted start and end of day times result in no time windows available, mark entire day as busy
+                    pass
+                else:
+                    #get free time windows
+                    StartTimes = []
+                    EndTimes = []
+                    if len(schedule_clean) == 0:
+                        output.append([dateFormat(dateRange[i]), [StartOfDay_temporal], [EndOfDay_temporal]])
+                    else:
+                        for j in range(len(schedule_clean) + 1):
+                            if j == 0:
+                                StartTimes.append(StartOfDay_temporal)
+                                EndTimes.append(schedule_clean[j][0])
+                            elif j == len(schedule_clean):
+                                StartTimes.append(schedule_clean[len(schedule_clean) - 1][1])
+                                EndTimes.append(EndOfDay_temporal)
+                            else:
+                                StartTimes.append(schedule_clean[j-1][1])
+                                EndTimes.append(schedule_clean[j][0])
+                        output.append([dateFormat(dateRange[i]), StartTimes, EndTimes])
+        else:
+            #the entire day is free if date is not in calendar_schedule
+            output.append([dateFormat(dateRange[i]), [StartOfDay_temporal], [EndOfDay_temporal]])
+
+    output_formatted = []
+    for item in output:
+        date = item[0]
+        timeWindows = []
+        for k in range(len(item[1])):
+            timeWindows.append(item[1][k] + ' - ' + item[2][k])
+        output_formatted.append([date, timeWindows])
+    return render_template('scheduleoutput.html', StartDate=StartDate_formatted, EndDate=EndDate_formatted, output=output_formatted)
 
 @app.route("/login", methods=["GET"])
 def login(outlookClientID = outlookClientID, outlookAuthURL = outlookAuthURL, outlook_redirect_uri = outlook_redirect_uri):

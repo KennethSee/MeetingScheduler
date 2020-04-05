@@ -1,0 +1,30 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Apology
+{% endblock %}
+
+{% block main %}
+    <h1>Your free times from {{ StartDate }} to {{ EndDate }}</h1>
+    <br>
+    <div>
+        <table class="table">
+            <thead>
+                <th scope="col">Dates</th>
+                <th scope="col">Free Times</th>
+            </thead>
+            <tbody>
+                {% for days in output %}
+                <tr>
+                    <td>{{ days[0] }}</td>
+                    <td>
+                        {% for times in days[1] %}
+                        <ul>{{ times }}</ul>
+                        {% endfor %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}
