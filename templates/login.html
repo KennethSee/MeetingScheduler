@@ -6,7 +6,15 @@
 
 {% block main %}
         <h1>Login with:</h1>
+        <br><br><br>
         <div>
-            <a href={{ outlookResponse }}><img src="static/outlook.png/" width=40 height=40></a>
+            <div class="row">
+                <div class="col-sm-1">
+                    <a href={{ outlookResponse }}><img src="static/outlook.png/" width=80 height=90></a>
+                </div>
+                <div class="col-sm-1">
+                    <a href={{ googleResponse }}><img src="static/gcal.png/" width=80 height=80></a>
+                </div>
+            </div>
         </div>
 {% endblock %}

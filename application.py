@@ -19,6 +19,16 @@ outlookCalendarViewURL = 'https://outlook.office.com/api/v2.0/me/calendarview'
 outlookClientID = '3b25d750-9b21-4793-91cf-298e839932bf'
 outlook_redirect_uri = 'https://meetingscheduler-api-heroku.herokuapp.com/auth/outlook/redirect'
 outlookClientSecret = 'b8XmFm=heopQaW/O=mwCz8xJ[RbDMs58'
+# outlookClientID = '51cd3d07-6ee7-4b99-a30d-8279cfd4c085' #dev
+# outlook_redirect_uri = 'http://localhost:5000/auth/outlook/redirect' #dev
+# outlookClientSecret = 'D28.UvsM29Yb/?TNXTx[t-u6FEmJt61E' #dev
+googleAuthURL = 'https://accounts.google.com/o/oauth2/v2/auth'
+googleTokenURL = 'https://oauth2.googleapis.com/token'
+googleCalendarViewURL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events'
+googleClientID = '577148182452-id7orf0jisg8dt756c6venquse331thn.apps.googleusercontent.com'
+googleClientSecret = 'nqLtrVMkcu6rkTy-uDGLY6KD'
+google_redirect_uri = 'https://meetingscheduler-api-heroku.herokuapp.com/auth/google/redirect'
+googleAPIKey = 'AIzaSyAz8L0MDA-1VBpcsBijScmBKMVr8N56i3E'
 
 # Configure application
 app = Flask(__name__)
@@ -38,7 +48,7 @@ def after_request(response):
 # app.jinja_env.filters["currencify"] = currencify
 
 # Configure session to use filesystem (instead of signed cookies)
-#app.config["SESSION_FILE_DIR"] = mkdtemp()
+app.config["SESSION_FILE_DIR"] = mkdtemp()
 app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
@@ -137,7 +147,66 @@ def main():
                                     events_dict[dateRange[i]].append((EventSubject, '00:00:00', '23:59:59'))
                                 else:
                                     events_dict[dateRange[i]] = [(EventSubject, '00:00:00', '23:59:59')]
-                        
+            session['calendar_schedule'] = events_dict
+            print(events_dict)
+        elif source == 'google':
+            #make API GET request to Google
+            headers = {
+                'Authorization': 'Bearer ' + accessToken,
+                'Accept' : 'application/json'
+            }
+            params = {
+                'timeMin': StartDateTime,
+                'timeMax': EndDateTime,
+                'maxResults': 1000,
+                'timezone': TimeZone,
+                'key': googleAPIKey
+            }
+            response = requests.get(googleCalendarViewURL, headers=headers, params=params)
+            #print(response.json())
+            #check to make sure request was successful
+            if response.status_code != 200:
+                return apology('Unable to retrieve calendar information', response.status_code)
+
+            for item in response.json().get('items'):
+                EventSubject = item.get('summary')
+                StartDateTime_response = item.get('start').get('dateTime')
+                EndDateTime_response = item.get('end').get('dateTime')
+                StartDate_response, StartTime_response = str(StartDateTime_response).split("T")
+                EndDate_response, EndTime_response = str(EndDateTime_response).split("T")
+
+                #format response times to only display HH:MM:SS
+                StartTime_response = StartTime_response[0:8]
+                EndTime_response = EndTime_response[0:8]
+
+                if StartDate_response == EndDate_response:
+                    #Check event date is already in dictionary
+                    if StartDate_response in events_dict:
+                        events_dict[StartDate_response].append((EventSubject, StartTime_response, EndTime_response))
+                    else:
+                        events_dict[StartDate_response] = [(EventSubject, StartTime_response, EndTime_response)]
+                else:
+                    rangeLength, dateRange = daterange(StartDate_response, EndDate_response)
+                    for i in range(rangeLength + 1):
+                        #iterate through dates in range
+                        if i == 0:
+                            #the first date's starting time will be the event's starting time while ending time will be 23:59
+                            if dateRange[i] in events_dict:
+                                events_dict[dateRange[i]].append((EventSubject, StartTime_response, '23:59:59'))
+                            else:
+                                events_dict[dateRange[i]] = [(EventSubject, StartTime_response, '23:59:59')]
+                        elif i == rangeLength:
+                            #add the final day's event time as starting time equal to start of day and ending time as the event end time
+                            if EndDate_response in events_dict:
+                                events_dict[EndDate_response].append((EventSubject, '00:00:00', EndTime_response))
+                            else:
+                                events_dict[EndDate_response] = [(EventSubject, '00:00:00', EndTime_response)]
+                        else:
+                            #subsequent dates will default to the entire day
+                            if dateRange[i] in events_dict:
+                                events_dict[dateRange[i]].append((EventSubject, '00:00:00', '23:59:59'))
+                            else:
+                                events_dict[dateRange[i]] = [(EventSubject, '00:00:00', '23:59:59')]
             session['calendar_schedule'] = events_dict
         return redirect("/scheduleoutput")
 
@@ -161,11 +230,11 @@ def output():
     rangeLength, dateRange = daterange(StartDate, EndDate)
     for i in range(rangeLength + 1):
         #assign temporal start and end times of the day
-        if StartDate == dateRange[i]:
+        if StartDate == dateRange[i] and StartTime > StartOfDay:
             StartOfDay_temporal = StartTime
         else:
             StartOfDay_temporal = StartOfDay
-        if EndDate == dateRange[i]:
+        if EndDate == dateRange[i] and EndTime < EndOfDay:
             EndOfDay_temporal = EndTime
         else:
             EndOfDay_temporal = EndOfDay
@@ -224,7 +293,7 @@ def output():
                         output.append([dateFormat(dateRange[i]), StartTimes, EndTimes])
         else:
             #the entire day is free if date is not in calendar_schedule
-            output.append([dateFormat(dateRange[i]), [StartOfDay_temporal], [EndOfDay_temporal]])
+            output.append([dateFormat(dateRange[i]), [StartOfDay], [EndOfDay]])
 
     output_formatted = []
     for item in output:
@@ -244,14 +313,22 @@ def login(outlookClientID = outlookClientID, outlookAuthURL = outlookAuthURL, ou
 
     #Set up OAuth for Outlook
     outlookScope='openID https://outlook.office.com/calendars.read.shared https://outlook.office.com/calendars.read'
-    payload = {'client_id': outlookClientID,
+    outlookPayload = {'client_id': outlookClientID,
                 'redirect_uri': outlook_redirect_uri,
                 'response_type': 'code',
                 'scope': outlookScope
                 }
-    from urllib.parse import urlencode
-    outlookResponse = '%s?%s' % (outlookAuthURL, urlencode(payload))
-    return render_template("login.html", outlookResponse = outlookResponse)
+    outlookResponse = '%s?%s' % (outlookAuthURL, urlencode(outlookPayload))
+
+    #Set up OAuth for Google
+    googleScope = 'https://www.googleapis.com/auth/calendar.readonly'
+    googlePayload = {'client_id': googleClientID,
+                'redirect_uri': google_redirect_uri,
+                'response_type': 'code',
+                'scope': googleScope
+    }
+    googleResponse = '%s?%s' % (googleAuthURL, urlencode(googlePayload))
+    return render_template("login.html", outlookResponse = outlookResponse, googleResponse = googleResponse)
 
 @app.route("/auth/outlook/redirect")
 def outlookAuth(ClientID = outlookClientID, ClientSecret = outlookClientSecret, RedirectURI = outlook_redirect_uri, url = outlookTokenURL):
@@ -276,6 +353,34 @@ def outlookAuth(ClientID = outlookClientID, ClientSecret = outlookClientSecret, 
     # store accessToken and calendar source
     session["access_token"] = accessToken
     session["calendar_source"] = 'outlook'
+
+    # tell the server that login was successful
+    session["user_id"] = 1
+    return redirect("/")
+
+@app.route("/auth/google/redirect")
+def googleAuth(ClientID = googleClientID, ClientSecret = googleClientSecret, RedirectURI = google_redirect_uri, url = googleTokenURL):
+    #obtain authorization code
+    authorizationCode = request.args.get('code')
+    
+    #get access token
+    payload = {'client_id': ClientID,
+                'client_secret': ClientSecret,
+                'code': authorizationCode,
+                'redirect_uri': RedirectURI,
+                'grant_type': 'authorization_code'
+                }
+    headers = {
+                'content-type': 'application/x-www-form-urlencoded',
+                'accept': 'application/json'
+                }
+    response = requests.post(url, data=payload, headers=headers)
+    responseJSON = response.json()
+    accessToken = responseJSON.get('access_token')
+
+    # store accessToken and calendar source
+    session["access_token"] = accessToken
+    session["calendar_source"] = 'google'
 
     # tell the server that login was successful
     session["user_id"] = 1
