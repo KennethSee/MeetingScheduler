@@ -312,7 +312,7 @@ def login(outlookClientID = outlookClientID, outlookAuthURL = outlookAuthURL, ou
     session.clear()
 
     #Set up OAuth for Outlook
-    outlookScope='openID https://outlook.office.com/calendars.read.shared https://outlook.office.com/calendars.read'
+    outlookScope= 'openID https://outlook.office.com/calendars.read.shared https://outlook.office.com/calendars.read'
     outlookPayload = {'client_id': outlookClientID,
                 'redirect_uri': outlook_redirect_uri,
                 'response_type': 'code',
@@ -321,7 +321,7 @@ def login(outlookClientID = outlookClientID, outlookAuthURL = outlookAuthURL, ou
     outlookResponse = '%s?%s' % (outlookAuthURL, urlencode(outlookPayload))
 
     #Set up OAuth for Google
-    googleScope = 'https://www.googleapis.com/auth/calendar.readonly'
+    googleScope = 'openid https://www.googleapis.com/auth/calendar.readonly'
     googlePayload = {'client_id': googleClientID,
                 'redirect_uri': google_redirect_uri,
                 'response_type': 'code',
