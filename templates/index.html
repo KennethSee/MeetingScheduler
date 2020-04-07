@@ -564,7 +564,8 @@
                 </select>
             </div>
         </div>
-        <h2>Daily time window restriction</h2>
+        <h2>Additional parameters</h2>
+        <strong>Time Window</strong>
         <div class="form-group row">
             <div class="col-sm-3">
                 <label for="TimeWindowStart">Beginning Time:</label>
@@ -573,6 +574,12 @@
             <div class="col-sm-3">
                 <label for="TimeWindowEnd">Ending Time:</label>
                 <input autocomplete="on" autofocus class="form-control" name="TimeWindowEnd" id="TimeWindowEnd" type="time" required>
+            </div>
+        </div>
+        <strong>Minimumn Time Interval (minutes)</strong>
+        <div class="form-group row">
+            <div class="col-sm-3">
+                <input autocomplete="on" autofocus class="form-control" name="TimeInterval" id="TimeInterval" type="number" step="1" min="5" max="240" required>
             </div>
         </div>
         <button class="btn btn-primary" type="submit" name="submit">Submit</button>

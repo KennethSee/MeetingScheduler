@@ -85,6 +85,7 @@ def main():
         EndDateTime = EndDate + 'T' + EndTime + TimeZoneOffset #ISO 8601 with TimeZone information
         session['StartOfDay'] = request.form.get('TimeWindowStart') + ':00'
         session['EndOfDay'] = request.form.get('TimeWindowEnd') + ':00'
+        session['TimeInterval'] = request.form.get('TimeInterval')
 
         if source == 'outlook':
             #make API GET request to Outlook
@@ -293,14 +294,17 @@ def output():
                         output.append([dateFormat(dateRange[i]), StartTimes, EndTimes])
         else:
             #the entire day is free if date is not in calendar_schedule
-            output.append([dateFormat(dateRange[i]), [StartOfDay], [EndOfDay]])
+            output.append([dateFormat(dateRange[i]), [StartOfDay_temporal], [EndOfDay_temporal]])
 
     output_formatted = []
+    timeInterval = session['TimeInterval']
     for item in output:
         date = item[0]
         timeWindows = []
         for k in range(len(item[1])):
-            timeWindows.append(item[1][k] + ' - ' + item[2][k])
+            if int((datetime.strptime(item[2][k], '%H:%M:%S') - datetime.strptime(item[1][k], '%H:%M:%S')).seconds / 60) >= int(timeInterval):
+                #only add in time window if it is greater than the minimum time interval
+                timeWindows.append(item[1][k] + ' - ' + item[2][k])
         output_formatted.append([date, timeWindows])
     return render_template('scheduleoutput.html', StartDate=StartDate_formatted, EndDate=EndDate_formatted, output=output_formatted)
 
@@ -395,6 +399,10 @@ def logout():
 
     # Redirect user to login form
     return redirect("/")
+
+@app.route("/privacy")
+def privacy():
+    return render_template('privacy.html')
 
 if __name__ == "__main__":
     app.run()

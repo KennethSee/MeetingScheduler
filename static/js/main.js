@@ -11,6 +11,7 @@ document.addEventListener("DOMContentLoaded", function(){
     UserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
     document.getElementById("TimeWindowStart").defaultValue = "09:00";
     document.getElementById("TimeWindowEnd").defaultValue = "17:00";
+    document.getElementById("TimeInterval").defaultValue = "15";
     $(function() {
         var temp=UserTimeZone; 
         $("#TimeZoneMain").val(temp);
