@@ -17,6 +17,17 @@ document.addEventListener("DOMContentLoaded", function(){
         $("#TimeZoneMain").val(temp);
     });
 
+    // Set Days of the week to check to weekdays only on click of weekdayOnlyButton
+    document.frm.weekdayOnlyButton.onclick = function(){
+        $("#MondayCheck").prop("checked", true);
+        $("#TuesdayCheck").prop("checked", true);
+        $("#WednesdayCheck").prop("checked", true);
+        $("#ThursdayCheck").prop("checked", true);
+        $("#FridayCheck").prop("checked", true);
+        $("#SaturdayCheck").prop("checked", false);
+        $("#SundayCheck").prop("checked", false);
+    }
+
     // Perform submission validations
     document.frm.submit.onclick = function(){
         StartingDateTime = document.frm.StartingDate.value.concat(" ", document.frm.StartingTime.value, ":00");
@@ -25,6 +36,19 @@ document.addEventListener("DOMContentLoaded", function(){
         if(StartingDateTime > EndingDateTime)
         {
             alert("Ending time cannot be earlier than Starting time!");
+            return false;
+        }
+        // Validate that at least one day of the week is checked
+        if(document.getElementById("MondayCheck").checked == false 
+            && document.getElementById("TuesdayCheck").checked == false
+            && document.getElementById("WednesdayCheck").checked == false
+            && document.getElementById("ThursdayCheck").checked == false
+            && document.getElementById("FridayCheck").checked == false
+            && document.getElementById("SaturdayCheck").checked == false
+            && document.getElementById("SundayCheck").checked == false
+        )
+        {
+            alert("At least one day of the week has to be selected!");
             return false;
         }
         return true;

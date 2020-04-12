@@ -86,6 +86,38 @@ def main():
         session['StartOfDay'] = request.form.get('TimeWindowStart') + ':00'
         session['EndOfDay'] = request.form.get('TimeWindowEnd') + ':00'
         session['TimeInterval'] = request.form.get('TimeInterval')
+        
+        # Record which days of the week the user has indicated to check
+        DayOfTheWeek_list = []
+        if request.form.get('MondayCheck') is None:
+            DayOfTheWeek_list.append(0)
+        else:
+            DayOfTheWeek_list.append(1)
+        if request.form.get('TuesdayCheck') is None:
+            DayOfTheWeek_list.append(0)
+        else:
+            DayOfTheWeek_list.append(1)
+        if request.form.get('WednesdayCheck') is None:
+            DayOfTheWeek_list.append(0)
+        else:
+            DayOfTheWeek_list.append(1)
+        if request.form.get('ThursdayCheck') is None:
+            DayOfTheWeek_list.append(0)
+        else:
+            DayOfTheWeek_list.append(1)
+        if request.form.get('FridayCheck') is None:
+            DayOfTheWeek_list.append(0)
+        else:
+            DayOfTheWeek_list.append(1)
+        if request.form.get('SaturdayCheck') is None:
+            DayOfTheWeek_list.append(0)
+        else:
+            DayOfTheWeek_list.append(1)
+        if request.form.get('SundayCheck') is None:
+            DayOfTheWeek_list.append(0)
+        else:
+            DayOfTheWeek_list.append(1)
+        session['DayOfTheWeek'] = DayOfTheWeek_list
 
         if source == 'outlook':
             #make API GET request to Outlook
@@ -221,6 +253,7 @@ def output():
     EndTime = session['EndTime']
     StartOfDay = session['StartOfDay']
     EndOfDay = session['EndOfDay']
+    DayOfTheWeek = session['DayOfTheWeek']
 
     #format dates to display Month_Name DD YYYY
     StartDate_formatted = dateFormat(StartDate)
@@ -230,71 +263,78 @@ def output():
     output = []
     rangeLength, dateRange = daterange(StartDate, EndDate)
     for i in range(rangeLength + 1):
-        #assign temporal start and end times of the day
-        if StartDate == dateRange[i] and StartTime > StartOfDay:
-            StartOfDay_temporal = StartTime
+        #check that date is part of checked day of the week
+        weekday_num = datetime.strptime(dateRange[i], '%Y-%m-%d').weekday() #get day of the week where Monday = 0 and Sunday = 7
+        #print('weekday:', weekday_num)
+        if DayOfTheWeek[weekday_num] == 0:
+            #skip over the day
+            pass
         else:
-            StartOfDay_temporal = StartOfDay
-        if EndDate == dateRange[i] and EndTime < EndOfDay:
-            EndOfDay_temporal = EndTime
-        else:
-            EndOfDay_temporal = EndOfDay
-
-        if dateRange[i] in calendar_schedule:
-            events = calendar_schedule.get(dateRange[i])
-            schedule = []
-            for event in events:
-                eventStartTime = event[1]
-                eventEndTime = event[2]
-                schedule.append((eventStartTime,eventEndTime))
-            schedule.sort(key=lambda x:x[0])
-            #merge overlapping events
-            mergeCount = 1
-            while mergeCount > 0:
-                mergeCount, schedule = scheduleMerge(schedule)
-
-            #remove any events that do not fall within user-defined time window
-            schedule_clean = []
-            for event in schedule:
-                if event[1] > StartOfDay_temporal and event[0] < EndOfDay_temporal:
-                    schedule_clean.append(event)
-            if len(schedule_clean) == 0:
-                pass
+            #assign temporal start and end times of the day
+            if StartDate == dateRange[i] and StartTime > StartOfDay:
+                StartOfDay_temporal = StartTime
             else:
-                #adjust start and end of days if necessary
-                if schedule_clean[0][0] <= StartOfDay_temporal:
-                    #set start of day to end of first event
-                    StartOfDay_temporal = schedule_clean[0][1]
-                    schedule_clean.pop(0)
-                if len(schedule_clean) > 0:
-                    if schedule_clean[-1][1] >= EndOfDay_temporal:
-                        #set end of day to start of first event
-                        EndOfDay_temporal = schedule_clean[-1][0]
-                        schedule_clean.pop(-1)
-                if EndOfDay_temporal < StartOfDay_temporal:
-                    #if adjusted start and end of day times result in no time windows available, mark entire day as busy
+                StartOfDay_temporal = StartOfDay
+            if EndDate == dateRange[i] and EndTime < EndOfDay:
+                EndOfDay_temporal = EndTime
+            else:
+                EndOfDay_temporal = EndOfDay
+
+            if dateRange[i] in calendar_schedule:
+                events = calendar_schedule.get(dateRange[i])
+                schedule = []
+                for event in events:
+                    eventStartTime = event[1]
+                    eventEndTime = event[2]
+                    schedule.append((eventStartTime,eventEndTime))
+                schedule.sort(key=lambda x:x[0])
+                #merge overlapping events
+                mergeCount = 1
+                while mergeCount > 0:
+                    mergeCount, schedule = scheduleMerge(schedule)
+
+                #remove any events that do not fall within user-defined time window
+                schedule_clean = []
+                for event in schedule:
+                    if event[1] > StartOfDay_temporal and event[0] < EndOfDay_temporal:
+                        schedule_clean.append(event)
+                if len(schedule_clean) == 0:
                     pass
                 else:
-                    #get free time windows
-                    StartTimes = []
-                    EndTimes = []
-                    if len(schedule_clean) == 0:
-                        output.append([dateFormat(dateRange[i]), [StartOfDay_temporal], [EndOfDay_temporal]])
+                    #adjust start and end of days if necessary
+                    if schedule_clean[0][0] <= StartOfDay_temporal:
+                        #set start of day to end of first event
+                        StartOfDay_temporal = schedule_clean[0][1]
+                        schedule_clean.pop(0)
+                    if len(schedule_clean) > 0:
+                        if schedule_clean[-1][1] >= EndOfDay_temporal:
+                            #set end of day to start of first event
+                            EndOfDay_temporal = schedule_clean[-1][0]
+                            schedule_clean.pop(-1)
+                    if EndOfDay_temporal < StartOfDay_temporal:
+                        #if adjusted start and end of day times result in no time windows available, mark entire day as busy
+                        pass
                     else:
-                        for j in range(len(schedule_clean) + 1):
-                            if j == 0:
-                                StartTimes.append(StartOfDay_temporal)
-                                EndTimes.append(schedule_clean[j][0])
-                            elif j == len(schedule_clean):
-                                StartTimes.append(schedule_clean[len(schedule_clean) - 1][1])
-                                EndTimes.append(EndOfDay_temporal)
-                            else:
-                                StartTimes.append(schedule_clean[j-1][1])
-                                EndTimes.append(schedule_clean[j][0])
-                        output.append([dateFormat(dateRange[i]), StartTimes, EndTimes])
-        else:
-            #the entire day is free if date is not in calendar_schedule
-            output.append([dateFormat(dateRange[i]), [StartOfDay_temporal], [EndOfDay_temporal]])
+                        #get free time windows
+                        StartTimes = []
+                        EndTimes = []
+                        if len(schedule_clean) == 0:
+                            output.append([dateFormat(dateRange[i]), [StartOfDay_temporal], [EndOfDay_temporal]])
+                        else:
+                            for j in range(len(schedule_clean) + 1):
+                                if j == 0:
+                                    StartTimes.append(StartOfDay_temporal)
+                                    EndTimes.append(schedule_clean[j][0])
+                                elif j == len(schedule_clean):
+                                    StartTimes.append(schedule_clean[len(schedule_clean) - 1][1])
+                                    EndTimes.append(EndOfDay_temporal)
+                                else:
+                                    StartTimes.append(schedule_clean[j-1][1])
+                                    EndTimes.append(schedule_clean[j][0])
+                            output.append([dateFormat(dateRange[i]), StartTimes, EndTimes])
+            else:
+                #the entire day is free if date is not in calendar_schedule
+                output.append([dateFormat(dateRange[i]), [StartOfDay_temporal], [EndOfDay_temporal]])
 
     output_formatted = []
     timeInterval = session['TimeInterval']
