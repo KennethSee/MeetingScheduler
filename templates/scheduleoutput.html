@@ -1,14 +1,20 @@
 {% extends "layout.html" %}
 
 {% block title %}
-    Apology
+    Schedule Output
 {% endblock %}
 
 {% block main %}
+    <script type="text/javascript" src="{{ url_for('static', filename='js/scheduleoutput.js') }}"></script>
     <h1>Your free times from {{ StartDate }} to {{ EndDate }}</h1>
+    <h2 class="subtext">Time Zone: {{ timezone }}</h2>
+    <br>
+    <div class="right">
+        <button class="btn btn-outline-secondary btn-sm" data-clipboard-target="#scheduleOutputTable" name="copy" id="copy">Copy to clipboard</button>
+    </div>
     <br>
     <div>
-        <table class="table">
+        <table class="table" id="scheduleOutputTable">
             <thead>
                 <th scope="col">Dates</th>
                 <th scope="col">Free Times</th>

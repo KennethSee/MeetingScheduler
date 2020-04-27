@@ -5,8 +5,8 @@ var client_id = new String("3b25d750-9b21-4793-91cf-298e839932bf");
 
 var UserTimeZone = new String();
 
-
 document.addEventListener("DOMContentLoaded", function(){
+
     // Set form default values
     UserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
     document.getElementById("TimeWindowStart").defaultValue = "09:00";
@@ -53,4 +53,12 @@ document.addEventListener("DOMContentLoaded", function(){
         }
         return true;
     }
+
+    // copy schedule output table
+    document.getElementById("copy").addEventListener( 'click', function(){
+        alert("test");
+        document.getElementById("scheduleOutputTable").select();
+        document.getElementById("scheduleOutputTable").focus();
+        return false;
+    });
 });

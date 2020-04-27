@@ -1,10 +1,11 @@
 {% extends "layout.html" %}
 
 {% block title %}
-    Apology
+    Input parameters
 {% endblock %}
 
 {% block main %}
+    <script type="text/javascript" src="{{ url_for('static', filename='js/main.js') }}"></script>
     <h1><p>Generate your free time slots</p></h1>
     <form method="post" name="frm">
         <div class="form-group row">

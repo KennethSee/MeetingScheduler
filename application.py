@@ -16,18 +16,21 @@ from helpers import *
 outlookAuthURL = 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize'
 outlookTokenURL = 'https://login.microsoftonline.com/common/oauth2/v2.0/token'
 outlookCalendarViewURL = 'https://outlook.office.com/api/v2.0/me/calendarview'
-outlookClientID = '3b25d750-9b21-4793-91cf-298e839932bf'
-outlook_redirect_uri = 'https://meetingscheduler-api-heroku.herokuapp.com/auth/outlook/redirect'
-outlookClientSecret = 'b8XmFm=heopQaW/O=mwCz8xJ[RbDMs58'
-# outlookClientID = '51cd3d07-6ee7-4b99-a30d-8279cfd4c085' #dev
-# outlook_redirect_uri = 'http://localhost:5000/auth/outlook/redirect' #dev
-# outlookClientSecret = 'D28.UvsM29Yb/?TNXTx[t-u6FEmJt61E' #dev
+# outlookClientID = '3b25d750-9b21-4793-91cf-298e839932bf'
+# outlook_redirect_uri = 'https://meetingscheduler-api-heroku.herokuapp.com/auth/outlook/redirect'
+# outlookClientSecret = 'b8XmFm=heopQaW/O=mwCz8xJ[RbDMs58'
+outlookClientID = '51cd3d07-6ee7-4b99-a30d-8279cfd4c085' #dev
+outlook_redirect_uri = 'http://localhost:5000/auth/outlook/redirect' #dev
+outlookClientSecret = 'D28.UvsM29Yb/?TNXTx[t-u6FEmJt61E' #dev
 googleAuthURL = 'https://accounts.google.com/o/oauth2/v2/auth'
 googleTokenURL = 'https://oauth2.googleapis.com/token'
 googleCalendarViewURL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events'
-googleClientID = '577148182452-id7orf0jisg8dt756c6venquse331thn.apps.googleusercontent.com'
-googleClientSecret = 'nqLtrVMkcu6rkTy-uDGLY6KD'
-google_redirect_uri = 'https://meetingscheduler-api-heroku.herokuapp.com/auth/google/redirect'
+# googleClientID = '577148182452-id7orf0jisg8dt756c6venquse331thn.apps.googleusercontent.com'
+# googleClientSecret = 'nqLtrVMkcu6rkTy-uDGLY6KD'
+# google_redirect_uri = 'https://meetingscheduler-api-heroku.herokuapp.com/auth/google/redirect'
+googleClientID = '577148182452-lobk90f0jde5s0c6it046klbcs5is93f.apps.googleusercontent.com' #dev
+googleClientSecret = 'e6bIlGyi_K1RhEMD7n7we7Rk' #dev
+google_redirect_uri = 'http://localhost:5000/auth/google/redirect' #dev
 googleAPIKey = 'AIzaSyAz8L0MDA-1VBpcsBijScmBKMVr8N56i3E'
 
 # Configure application
@@ -71,6 +74,7 @@ def main():
         
         # get user-specified parameters
         TimeZone = request.form.get('TimeZone')
+        session['timezone'] = TimeZone
         TimeZoneOffset = datetime.now(pytz.timezone(TimeZone)).strftime('%z')
         TimeZoneOffset = TimeZoneOffset[:3] + ':' + TimeZoneOffset[3:]
         StartDate = request.form.get('StartingDate')
@@ -254,6 +258,7 @@ def output():
     StartOfDay = session['StartOfDay']
     EndOfDay = session['EndOfDay']
     DayOfTheWeek = session['DayOfTheWeek']
+    TimeZone = session['timezone']
 
     #format dates to display Month_Name DD YYYY
     StartDate_formatted = dateFormat(StartDate)
@@ -346,7 +351,7 @@ def output():
                 #only add in time window if it is greater than the minimum time interval
                 timeWindows.append(item[1][k] + ' - ' + item[2][k])
         output_formatted.append([date, timeWindows])
-    return render_template('scheduleoutput.html', StartDate=StartDate_formatted, EndDate=EndDate_formatted, output=output_formatted)
+    return render_template('scheduleoutput.html', StartDate=StartDate_formatted, EndDate=EndDate_formatted, output=output_formatted, timezone=TimeZone)
 
 @app.route("/login", methods=["GET"])
 def login(outlookClientID = outlookClientID, outlookAuthURL = outlookAuthURL, outlook_redirect_uri = outlook_redirect_uri):
@@ -394,6 +399,16 @@ def outlookAuth(ClientID = outlookClientID, ClientSecret = outlookClientSecret, 
     responseJSON = response.json()
     accessToken = responseJSON.get('access_token')
 
+    # check if calendar can be retrieved
+    checkHeaders = {
+                'Authorization': 'Bearer ' + accessToken,
+                'Accept' : 'application/json'
+            }
+    calendarCheck = requests.get('https://outlook.office.com/api/v2.0/me/calendars', headers=checkHeaders)
+    if calendarCheck.status_code != 200:
+        # return error
+        return apology('Unable to retrieve calendar information', response.status_code)
+
     # store accessToken and calendar source
     session["access_token"] = accessToken
     session["calendar_source"] = 'outlook'
@@ -421,6 +436,16 @@ def googleAuth(ClientID = googleClientID, ClientSecret = googleClientSecret, Red
     response = requests.post(url, data=payload, headers=headers)
     responseJSON = response.json()
     accessToken = responseJSON.get('access_token')
+
+    # check if calendar can be retrieved
+    checkHeaders = {
+                'Authorization': 'Bearer ' + accessToken,
+                'Accept' : 'application/json'
+            }
+    calendarCheck = requests.get('https://www.googleapis.com/calendar/v3/calendars/primary', headers=checkHeaders)
+    if calendarCheck.status_code != 200:
+        # return error
+        return apology('Unable to retrieve calendar information', response.status_code)
 
     # store accessToken and calendar source
     session["access_token"] = accessToken
